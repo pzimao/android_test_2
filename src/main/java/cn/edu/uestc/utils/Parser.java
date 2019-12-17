@@ -11,7 +11,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -172,12 +171,6 @@ public class Parser {
     }
 
     public static void main(String[] args) {
-        System.out.println(Parser.parseGzhMc());
-//        DBManager.execute(DataSource.APP_TEST_DB, SQLUtil.getSQL(Parser.parseInfo(new File("D:\\fiddler_gen\\_wxad6b99eff4edb027.html"))));
-        while (true) {
-            Scanner scanner = new Scanner(System.in);
-            String str = scanner.nextLine();
-            System.out.println(Parser.parseInfo(new File("D:\\fiddler_gen\\" + str + ".html")));
-        }
+        System.out.println(Parser.parseInfo(new File("D:\\fiddler_gen\\_wx15dc998dd24ea218.html")));
     }
 }

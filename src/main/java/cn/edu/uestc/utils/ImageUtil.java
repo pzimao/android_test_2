@@ -115,4 +115,8 @@ public class ImageUtil {
 
         return bufferedImage;
     }
+
+    public static void main(String[] args) {
+        System.out.println(ImageUtil.takeSnapshot().getHeight());
+    }
 }

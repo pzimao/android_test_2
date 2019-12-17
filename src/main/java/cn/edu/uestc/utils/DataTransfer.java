@@ -200,8 +200,35 @@ public class DataTransfer {
         }
     }
 
+    public static void dubaToWxxcx() throws Exception {
+        String querySql = "select * from wxxcx_duba";
+        String checkSql = "select * from wxxcx where name = ?";
+        String insertSql = "insert into wxxcx values (?, ?, '', ?, ?, 0, 0, '', 0, 0, ?)";
+        ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, querySql);
+        while (resultSet.next()) {
+            ResultSet checkResult = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, checkSql, resultSet.getString(2));
+            if (checkResult.next()) {
+                continue;
+            }
+            DBManager.execute(DataSource.APP_TEST_DB, insertSql, resultSet.getString(1), resultSet.getString(2), resultSet.getString(3), resultSet.getString(4), resultSet.getString(5));
+        }
+    }
+    public static void xcxwToWxxcx() throws Exception {
+        String querySql = "select * from wxxcx_xcxw";
+        String checkSql = "select * from wxxcx where name = ?";
+        String insertSql = "insert into wxxcx(`name`, `appkey`, `category`, `desc`) values (?, ?, ?, ?)";
+        ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, querySql);
+        while (resultSet.next()) {
+            ResultSet checkResult = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, checkSql, resultSet.getString(2));
+            if (checkResult.next()) {
+                continue;
+            }
+            DBManager.execute(DataSource.APP_TEST_DB, insertSql, resultSet.getString(2), resultSet.getString(1), resultSet.getString(3), resultSet.getString(4));
+        }
+    }
     public static void main(String[] args) throws Exception {
-        txtToApp();
+        xcxwToWxxcx();
+//        txtToApp();
 //        appInfoToApp();
 //        appDlToApp();
 //        appDomainToDomain();

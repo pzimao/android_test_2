@@ -3,6 +3,8 @@ package cn.edu.uestc.apptest.thread;
 import cn.edu.uestc.DataSource;
 import cn.edu.uestc.utils.APKUtil;
 import cn.edu.uestc.utils.DBManager;
+import cn.edu.uestc.utils.FileNameFilter;
+import org.apache.commons.io.FileUtils;
 import org.apache.http.*;
 import org.apache.http.client.RedirectStrategy;
 import org.apache.http.client.config.CookieSpecs;
@@ -23,7 +25,10 @@ import java.io.InputStream;
 import java.net.URI;
 import java.sql.ResultSet;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Properties;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class DownloadThread extends Thread {
@@ -33,6 +38,11 @@ public class DownloadThread extends Thread {
     private static long minDownloadApkFileSize;
     private static String appFolder = "";
     private static String userAgent;
+
+    private static final String sql1 = "select id, app_name, dl_url from app where dl_state != 1 and dl_url is not null";
+    private static final String sql2 = "update app set dl_state = ?, actual_pkg_name = ? where id = ?";
+    private static final String sql3 = "update `app` set `dl_state` = ? where `id` = ?";
+    private static final String sql4 = "update `app` set `desc` = ? where `id` = ?";
 
     static {
         Logger cLogger = LogManager.getLogger("下载线程类");
@@ -57,7 +67,7 @@ public class DownloadThread extends Thread {
         userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_7_3) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.151 Safari/535.19";
     }
 
-
+    // 用于打印日志及进度条
     private int threadId;
     private Logger logger;
     private String currentApp = "";
@@ -71,7 +81,10 @@ public class DownloadThread extends Thread {
     @Override
     public void run() {
         CloseableHttpClient httpClient = HttpClients.custom().
-                setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build()).
+                setDefaultRequestConfig(RequestConfig.custom().
+                        setSocketTimeout(10 * 60 * 1000).
+                        setConnectTimeout(60 * 1000).
+                        setCookieSpec(CookieSpecs.STANDARD).build()).
                 setUserAgent(userAgent).
                 setRedirectStrategy(new RedirectStrategy() {    //设置重定向处理方式
 
@@ -95,13 +108,12 @@ public class DownloadThread extends Thread {
 
         HttpGet httpGet = new HttpGet();
         CloseableHttpResponse httpResponse = null;
+
         // 从数据库读取下载链接
         boolean flag = true;
         while (flag) {
             flag = false;
-            String sql1 = "select id, app_name, dl_url from app where dl_state != 1 and dl_url is not null and id < 184398";
-            String sql2 = "update app set dl_state = ?, actual_pkg_name = ? where id = ?";
-            String sql3 = "update app set dl_state = ? where id = ?";
+
             ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, sql1);
             try {
                 dl:
@@ -121,8 +133,8 @@ public class DownloadThread extends Thread {
                         httpResponse.close();
                     }
 
-                    // 在setURI之前，检查下载地址
-                    // 如果下载地址无效，直接把结果写入数据库
+                    // 在setURI之前，简单检查下载地址
+                    // 如果下载地址无效，直接写入数据库【下载地址无效】
                     if (!(url.contains("http:") || url.contains("https:"))) {
                         DBManager.execute(DataSource.APP_TEST_DB, sql3, "-1", String.valueOf(id));
                         continue;
@@ -135,7 +147,7 @@ public class DownloadThread extends Thread {
                     try {
                         httpResponse = httpClient.execute(httpGet);
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        //e.printStackTrace();
                         logger.warn("执行GET请求时出错");
                         // 更新数据库
                         DBManager.execute(DataSource.APP_TEST_DB, sql3, "-1", String.valueOf(id));
@@ -190,38 +202,46 @@ public class DownloadThread extends Thread {
                     }
                     logger.info(appName + ":" + apkLength + "字节:开始下载");
 
-                    File xml = new File(appFolder + id);
-                    FileOutputStream outputStream = new FileOutputStream(xml);
+                    File tmpApkFile = new File(appFolder + id + "_" + FileNameFilter.filter(appName) + ".tmp");
 
-                    InputStream inputStream = httpResponse.getEntity().getContent();
                     byte[] buff = new byte[1024 * 1024];
                     int counts;
                     long dSize = 0;
-                    String appPackageName = "";
-                    try {
+
+                    try (FileOutputStream outputStream = new FileOutputStream(tmpApkFile); InputStream inputStream = httpResponse.getEntity().getContent()) {
                         while ((counts = inputStream.read(buff)) != -1) {
                             outputStream.write(buff, 0, counts);
                             // 生成进度条
                             this.percent = getProgress(dSize += counts, apkLength);
                         }
-                        inputStream.close();
-                        outputStream.flush();
-                        outputStream.close();
-                        // 获取文件包名
-                        appPackageName = APKUtil.getApkPackageName(xml.getAbsolutePath());
-                        // 改名
-                        logger.info(id + " 号文件的包名: " + appPackageName);
-                        xml.renameTo(new File(appFolder + id + "_" + appName + ".apk"));
+
+                        httpGet.releaseConnection();
                     } catch (Exception e) {
                         logger.warn("下载出错");
-                        xml.delete();
+                        // 删除错误的下载文件
+                        tmpApkFile.delete();
                         DBManager.execute(DataSource.APP_TEST_DB, sql3, "-1", String.valueOf(id));
                         httpGet.releaseConnection();
                         continue;
                     }
-
-                    httpGet.releaseConnection();
                     logger.info(appName + ":下载完成");
+                    // 改名
+                    File apkFile = new File(appFolder + id + "_" + FileNameFilter.filter(appName) + ".apk");
+                    logger.info("文件改名为 " + apkFile.getAbsolutePath());
+                    try {
+                        FileUtils.moveFile(tmpApkFile, apkFile);
+                    } catch (Exception ex) {
+                        tmpApkFile.delete();
+                    }
+                    // 获取文件包名
+                    String appPackageName = APKUtil.getApkPackageName(apkFile.getAbsolutePath());
+
+                    logger.info(id + " 号文件的包名: " + appPackageName);
+                    if ("".equals(appPackageName)) {
+                        logger.info(appName + "获取包名失败");
+                        DBManager.execute(DataSource.APP_TEST_DB, sql4, "2", String.valueOf(id));
+                    }
+
                     DBManager.execute(DataSource.APP_TEST_DB, sql2, "1", appPackageName, String.valueOf(id));
 
                     this.percent = "";
@@ -248,7 +268,6 @@ public class DownloadThread extends Thread {
         for (int i = 0; i < progress; i++) {
             pStr += "▉";
         }
-//                        percent += "&#x27a4;";
         for (int i = 0; i < (30 - progress); i++) {
             pStr += " ";
         }
@@ -260,7 +279,7 @@ public class DownloadThread extends Thread {
 
         final Logger logger = LogManager.getLogger("定时任务");
         ArrayList<DownloadThread> downloadThreadList = new ArrayList<>();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 3; i++) {
             DownloadThread downloadThread = new DownloadThread(i);
             downloadThreadList.add(downloadThread);
             downloadThread.start();

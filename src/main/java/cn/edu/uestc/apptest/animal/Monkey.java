@@ -1,5 +1,6 @@
 package cn.edu.uestc.apptest.animal;
 
+import cn.edu.uestc.apptest.type.OperationType;
 import cn.edu.uestc.apptest.thread.DownloadThread;
 import cn.edu.uestc.utils.DeviceManager;
 import cn.edu.uestc.utils.ExecUtil;
@@ -46,7 +47,7 @@ public class Monkey {
 
         HashSet<String> whiteSet = new HashSet<>();
         if (filterInstalledAppFlag) {
-            for (String pkgName : ExecUtil.exec("adb shell pm list package -3").split("\n")) {
+            for (String pkgName : ExecUtil.exec("adb -s 127.0.0.1:7555 shell pm list package -3").split("\n")) {
                 Matcher matcher0 = Pattern.compile("(\\w+\\.)+\\w+").matcher(pkgName);
                 while (matcher0.find()) {
                     String packageName = matcher0.group();
@@ -57,7 +58,7 @@ public class Monkey {
         boolean workFlag = true;
         while (workFlag) {
             try {
-                Matcher matcher = Pattern.compile("(\\w+\\.)+\\w+\\n?").matcher(ExecUtil.exec("adb shell pm list package -3"));
+                Matcher matcher = Pattern.compile("(\\w+\\.)+\\w+\\n?").matcher(ExecUtil.exec("adb -s 127.0.0.1:7555 shell pm list package -3"));
                 while (matcher.find()) {
                     // 检查设备状态
                     while (!DeviceManager.isStarted) {
@@ -69,11 +70,11 @@ public class Monkey {
                     if (!whiteSet.contains(packageName)) {
                         logger.info("当前测试的APP包名: " + packageName);
                         logger.info("开始抓" + packageName + "的数据包");
-                        new TcpdumpUtil(packageName).start();
+                        new TcpdumpUtil(OperationType.AUTOMATIC, packageName).start();
                         logger.info("开始测试: " + packageName);
 
                         Thread monkeyThread = new Thread(() ->
-                                ExecUtil.exec("adb shell monkey -p " + packageName + " " + monkeyEventNumber));
+                                ExecUtil.exec("adb -s 127.0.0.1:7555 shell monkey -p " + packageName + " " + monkeyEventNumber));
                         monkeyThread.start();
                         long waitTime = System.currentTimeMillis();
                         while (System.currentTimeMillis() - waitTime < monkeyTimeout && monkeyThread.isAlive()) {
@@ -85,13 +86,13 @@ public class Monkey {
                         }
 
                         // 停止monkey，停止tcpdump
-                        String cmdResult = ExecUtil.exec("adb shell ps | grep -E 'monkey|tcpdump'");
+                        String cmdResult = ExecUtil.exec("adb -s 127.0.0.1:7555 shell ps | grep -E 'monkey|tcpdump'");
                         // 解析出进程ID号
                         Pattern pattern = Pattern.compile("\\W(\\d+)\\W+\\d+\\W+\\d+\\W+\\d+\\W");
                         Matcher processIdMatcher = pattern.matcher(cmdResult);
                         while (processIdMatcher.find()) {
                             String processId = processIdMatcher.group(1);
-                            ExecUtil.exec("adb shell kill -9 " + processId);
+                            ExecUtil.exec("adb -s 127.0.0.1:7555 shell kill -9 " + processId);
                         }
                         logger.info("超时，强制结束monkey, tcpdump");
 
@@ -100,15 +101,16 @@ public class Monkey {
                         // 这里可以有两种方式卸载APP
                         // 1. 通过Java。runtime exec 直接执行cmd命令
                         // 2. device removePackage
-                        ExecUtil.exec("adb uninstall " + packageName);
+                        ExecUtil.exec("adb -s 127.0.0.1:7555 uninstall " + packageName);
                         logger.info(packageName + "卸载完成");
 
                         // 此时子线程就拿到了抓到的包的信息
+                        Thread.sleep(10 * 000);
                     }
                 }
                 try {
                     // 做完一遍了
-                    Thread.sleep(3 * 1000);
+                    Thread.sleep(120 * 1000);
                 } catch (Exception exception) {
                 }
             } catch (Exception e) {

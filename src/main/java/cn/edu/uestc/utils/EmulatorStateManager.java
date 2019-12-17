@@ -100,6 +100,8 @@ public class EmulatorStateManager { // 这个类可以认为是无状态的
     public static void restart() {
         long delay = 15000; // 初始等待时间15秒
         do {
+            ExecUtil.exec("adb kill-server");
+            ExecUtil.exec("adb connect 127.0.0.1:62001");
             ExecUtil.exec("adb shell am start -W -S com.tencent.mm/.ui.LauncherUI");
             try {
                 Thread.sleep(delay += delay); // 在每次重启中，失败会加倍等待时间
@@ -115,11 +117,17 @@ public class EmulatorStateManager { // 这个类可以认为是无状态的
      */
     private static void gotoDefaultView() {
         // 当前activity跟主页activity不一致，先跳到正确的activity
-        while (!getCurrentActivity().equals(Activity.LauncherUI)) {
-            ExecUtil.exec("adb shell am start -R 3 com.tencent.mm/.ui.LauncherUI");
+        int count = 10;
+        while (count-- > 0 && !getCurrentActivity().equals(Activity.LauncherUI)) {
+            // 2019-8-12 修改后退命令
+//            ExecUtil.exec("adb shell am start -R 3 com.tencent.mm/.ui.LauncherUI");
+            ExecUtil.exec("adb shell input keyevent 4");
+        }
+        if (count <= 0) {
+            EmulatorStateManager.restart();
         }
         // 操作次数上限 15，防止出现死循环
-        int count = 15;
+        count = 15;
         View currentView;
         while ((currentView = getCurrentView()).compareTo(View.V0) > 0) { // 后退或者点击后退可以到达微信主页面
             if (currentView.backward == null) { // 如果标识后退的图标/按钮不存在，那么就按后退键
@@ -149,7 +157,8 @@ public class EmulatorStateManager { // 这个类可以认为是无状态的
             gotoDefaultView();
         }
 
-        while ((currentView = getCurrentView()) != targetView) {
+        int count = 20;
+        while ((currentView = getCurrentView()) != targetView && count-- > 0) {
             String xpath = "";
             if (currentView == View.V0) { // V0页面的前进和后退特别处理
                 if (targetView.index >= 200) {
@@ -171,9 +180,14 @@ public class EmulatorStateManager { // 这个类可以认为是无状态的
                 ExecUtil.exec(String.format("adb shell input tap %d %d", position[0], position[1]));
             }
         }
+        if (count <= 0) {
+            restart();
+            gotoView(targetView);
+        }
     }
 
     public static void main(String[] args) {
-        System.out.println(getCurrentView());
+        getCurrentView();
+//        gotoView(View.V120);
     }
 }

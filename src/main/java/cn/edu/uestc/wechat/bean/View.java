@@ -9,7 +9,7 @@ public enum View implements Comparator<View> {
      * 后退：“发现”
      * 前进："会话"
      */
-    V0(0, Activity.LauncherUI, new String[]{Resource.CHAT_HOME, Resource.CHAT_SESSION_LIST_ITEM_X}, Resource.WECHAT_FINDS, Resource.CHAT_SESSION_LIST_ITEM_X),
+    V0(0, Activity.LauncherUI, new String[]{Resource.CHAT_HOME_0, Resource.CHAT_SESSION_LIST_ITEM_X}, Resource.WECHAT_FINDS, Resource.CHAT_SESSION_LIST_ITEM_X),
 
     /**
      * 发现页
@@ -24,7 +24,7 @@ public enum View implements Comparator<View> {
      * 后退：左上角
      * 前进：“🔍”
      */
-    V115(115, Activity.AppBrandLauncherUI, new String[]{Resource.WECHAT_FINDS_XCX}, Resource.WEB_CLOSE_BUTTON_X, Resource.XCX_SEARCH_BUTTON),
+    V115(115, Activity.AppBrandLauncherUI, new String[]{Resource.WECHAT_FINDS_XCX}, Resource.XCX_CLOSE_BUTTON_X, Resource.XCX_SEARCH_BUTTON),
 
     /**
      * 小程序搜索页，输入前
@@ -52,11 +52,16 @@ public enum View implements Comparator<View> {
 
 
     // 小程序、小程序授权页面，使用后退或者跳转activity离开小程序页，不需要处理权限申请对话框
-    V160(160, Activity.AppBrandUI, new String[]{Resource.XCX_PAGE_PERMISSION_AGREE}, Resource.XCX_PAGE_PERMISSION_AGREE, null), // 小程序
+    V160(160, Activity.AppBrandUI, new String[]{Resource.XCX_PAGE_PERMISSION_AGREE}, null, null), // 小程序
     V165(165, Activity.AppBrandPluginUI, new String[]{Resource.XCX_PLUGIN_PROGRESSBAR}, Resource.XCX_BACK_BUTTON, null), // 小程序
+    /**
+     * 小程序加载页面
+     * 小程序名称在上侧
+     */
     V175(175, Activity.AppBrandPluginUI, new String[]{Resource.XCX_LOADING_STATE_3}, Resource.XCX_PAGE_IMAGE_CLOSE_BUTTON, null), // 小程序
     /**
-     * 小程序页面
+     * 小程序（加载）页面
+     * 小程序名称在中间
      * 后退：右上角圆圈
      * 前进：null(目前不需要前进)
      */
@@ -80,7 +85,7 @@ public enum View implements Comparator<View> {
     /**
      * 浏览器
      */
-    V203(203, Activity.WebviewMpUI, new String[]{Resource.WEB_CLOSE_BUTTON_X}, Resource.WEB_CLOSE_BUTTON_X, null), // url点开后的网页
+    V203(203, Activity.WebviewMpUI, new String[]{Resource.WEB_CLOSE_BUTTON_X, Resource.WEB_MORE_BUTTON_X}, Resource.WEB_CLOSE_BUTTON_X, null), // url点开后的网页
 
 
     /**
@@ -92,7 +97,15 @@ public enum View implements Comparator<View> {
      */
     V101(101, Activity.FTSMainUI, new String[]{Resource.SEARCH_TYPE_4_X, Resource.WECHAT_SEARCH_ALL}, Resource.SEARCH_BACK_BUTON_X, Resource.SEARCH_TYPE_4_X), // 搜索0
     // 小程序加载前的加载视图，可能会很耗时，也可能卡住
-    V119(119, Activity.AppBrandXWebDownloadProxyUI, new String[]{Resource.XCX_LOADING_RESOURCE, Resource.XCX_SEARCH_RESULT_LOADING}, null, null); // 小程序
+    V119(119, Activity.AppBrandXWebDownloadProxyUI, new String[]{Resource.XCX_LOADING_RESOURCE, Resource.XCX_SEARCH_RESULT_LOADING}, null, null), // 小程序
+
+    /**
+     * 已关注的公众号的聊天页面
+     * 判定依据：暂无
+     * 后退：左上角后退图标
+     * 前进：右上角详情图标
+     */
+    V190(190, Activity.ChattingUI, new String[]{Resource.GZH_LT_NR}, Resource.CHAT_BACK_BUTTON_X, Resource.XCX_SEARCH_BUTTON);
     // 小程序搜索页，搜索前
 //    V103(103, Activity.FTSSearchTabWebViewUI, new String[]{Resource.SEARCH_TEXT_FIELD_X}, Resource.SEARCH_BACK_BUTON_X, null),
 

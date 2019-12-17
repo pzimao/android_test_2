@@ -50,12 +50,11 @@ public class DeviceManager {
             @Override
             public void run() {
                 // 检查是否需要重启设备
-
                 // 检查网络
                 final Exchanger<String> exchanger = new Exchanger<>();
                 new Thread(() -> {
                     try {
-                        exchanger.exchange(ExecUtil.exec("adb shell ping -c 1 baidu.com"));
+                        exchanger.exchange(ExecUtil.exec("adb -s 127.0.0.1:7555 shell ping -c 1 baidu.com"));
                     } catch (Exception e) {
                     }
                 }).start();
@@ -75,7 +74,6 @@ public class DeviceManager {
                 }
 
                 // todo 检查安装线程状态, 现在的思路是检查现有的APP里是否有新安装的
-
                 if (!isStarted) {
                     if (retryCount < 3) {
                         logger.info("重启模拟器");
@@ -87,11 +85,10 @@ public class DeviceManager {
                         resetDevice();
                         retryCount = 0;
                     }
-
                 }
             }
         };
-        new Timer().schedule(timerTask, 50000, deviceStateCheckPeriod);
+        new Timer().schedule(timerTask, 3 * 60 * 1000, deviceStateCheckPeriod);
     }
 
 
@@ -141,7 +138,7 @@ public class DeviceManager {
         }
         for (int i = 0; i < 10; i++) {
             logger.info("测试连接...");
-            if (ExecUtil.exec("adb shell echo hello, Zimao Pang").contains("Zimao")) {
+            if (ExecUtil.exec("adb -s 127.0.0.1:7555 shell echo hello, Zimao Pang").contains("Zimao")) {
                 logger.info("模拟器启动了");
                 isStarted = true;
                 return true;
@@ -273,7 +270,7 @@ public class DeviceManager {
 
     private static boolean resetDevice() {
 
-        String leftApps = ExecUtil.exec("adb shell pm list package -3");
+        String leftApps = ExecUtil.exec("adb -s 127.0.0.1:7555 shell pm list package -3");
         if (!"".equals(leftApps.trim())) {
             //导出已安装但还未测试的APP包名
             String export = System.currentTimeMillis() + ".txt";

@@ -1,5 +1,6 @@
 package cn.edu.uestc.apptest;
 
+import cn.edu.uestc.apptest.type.OperationType;
 import cn.edu.uestc.utils.ExecUtil;
 import cn.edu.uestc.utils.TcpdumpUtil;
 import org.apache.log4j.LogManager;
@@ -11,12 +12,17 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ManualTest {
+    // 用来过滤已安装APP的正则表达式
+    static final Pattern pattern1 = Pattern.compile("(\\w+\\.)+\\w+\\r?");
+    // 跟上面那个差不多
+    static final Pattern pattern2 = Pattern.compile("(\\w+\\.)+\\w+\\n?");
+
 
     public static void test() {
         final Logger logger = LogManager.getLogger("manual test: ");
         HashSet<String> whiteSet = new HashSet<>();
         // 排除已经安装的app
-        Matcher matcher0 = Pattern.compile("(\\w+\\.)+\\w+\\r?").matcher(ExecUtil.exec("adb shell pm list package -3"));
+        Matcher matcher0 = pattern1.matcher(ExecUtil.exec("adb shell pm list package -3"));
         while (matcher0.find()) {
             String packageName = matcher0.group();
             System.out.println("排除: " + packageName);
@@ -24,14 +30,15 @@ public class ManualTest {
         }
         while (true) {
             try {
-                Matcher matcher = Pattern.compile("(\\w+\\.)+\\w+\\n?").matcher(ExecUtil.exec("adb shell pm list package -3"));
+                Matcher matcher = pattern2.matcher(ExecUtil.exec("adb shell pm list package -3"));
                 while (matcher.find()) {
 
                     String packageName = matcher.group().trim();
                     if (!whiteSet.contains(packageName)) {
                         // 是新安装的APP
                         logger.info("开始抓【" + packageName + "】的数据包");
-                        new TcpdumpUtil(packageName).start();
+
+                        new TcpdumpUtil(OperationType.MANUAL, packageName).start();
 
                         logger.info("开始测试【 " + packageName + "】，请手动操作APP");
                         logger.info("在这里输入任意字符可以结束测试...");
@@ -40,7 +47,7 @@ public class ManualTest {
                         new Scanner(System.in).next();
 
                         logger.info("【" + packageName + "】" + "结束测试");
-                        ExecUtil.exec("adb remove " + packageName);
+                        ExecUtil.exec("adb uninstall " + packageName);
                         logger.info("【" + packageName + "】" + "已经被卸载了");
                         String pids = ExecUtil.exec("adb shell pidof tcpdump").trim();
                         Matcher pidMatcher = Pattern.compile("\\d+").matcher(pids);
@@ -49,8 +56,11 @@ public class ManualTest {
                             ExecUtil.exec("adb shell kill " + pid);
                             logger.info("kill抓包进程");
                         }
+
                     }
+
                 }
+
                 logger.info("请手动安装APP");
                 Thread.sleep(10 * 1000);
             } catch (Exception e) {

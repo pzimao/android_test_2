@@ -1,43 +1,41 @@
 package cn.edu.uestc.utils;
 
 import cn.edu.uestc.DataSource;
-import cn.edu.uestc.apptest.animal.ChinazCrawler;
+import cn.edu.uestc.apptest.type.OperationType;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.sql.ResultSet;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class TcpdumpUtil extends Thread {
+    private OperationType op;
     private String packageName;
     private final Logger logger;
-    private ArrayList<Integer> appIdList = new ArrayList<>();
+    // 用来匹配域名的正则表达式
+    static final Pattern pattern3 = Pattern.compile("https?:\\/\\/(.+?)[:\\/]");
 
-    public TcpdumpUtil(String packageName) {
+    public TcpdumpUtil(OperationType op, String packageName) {
+        this.op = op;
         logger = LogManager.getLogger("Tcpdump抓包线程");
         this.packageName = packageName;
-        // 把获取APP id 的过程放在了构造方法里
-        String sql0 = "select id from app where actual_pkg_name = ?";
-        ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, sql0, packageName);
-        try {
-            if (resultSet.next()) {
-                // 根据包名拿到app id
-                int appId = resultSet.getInt(1);
-                logger.info("获取到 " + packageName + " 的app id: " + appId);
-                appIdList.add(appId);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        if (appIdList.size() == 0) {
-            logger.warn("没有找到包名 " + packageName + " 对应的APP id");
-        }
     }
 
     @Override
     public void run() {
+        // 这以后保存Fiddler抓到的包
+        File file = new File("D:/1.txt");
+        if (file.exists()) {
+            // 删除历史文件
+            logger.info("删除历史URL");
+            logger.info("删除操作 : " + file.delete());
+        }
+
         // 抓取DNS请求和相应包
         String[] packetArray = capturePacket();
 
@@ -59,6 +57,31 @@ public class TcpdumpUtil extends Thread {
 
         // 存储所有内容
         saveDomain(requestMap, responseMap);
+
+        try {
+            // 处理Fiddler抓包
+            if (file.exists()) {
+                HashSet<String> domainSet = new HashSet<>();
+                BufferedReader bufferedReader = new BufferedReader(new FileReader(file));
+                String line;
+                while ((line = bufferedReader.readLine()) != null) {
+
+                    Matcher matcher1 = pattern3.matcher(line);
+                    while (matcher1.find()) {
+                        domainSet.add(matcher1.group(1));
+                    }
+                }
+
+                bufferedReader.close();
+                // 存储内容
+                HashSet<Integer> appIdSet = DBManager.getAppId(packageName);
+                for (Integer appId : appIdSet) {
+                    DBManager.insertAppDomains(String.valueOf(appId), domainSet, op);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     // 捕获请求包和响应包
@@ -67,7 +90,7 @@ public class TcpdumpUtil extends Thread {
 
         String packageContent = "";
         try {
-            packageContent = ExecUtil.exec("adb shell /data/local/tcpdump -i any port 53 -s 0");
+            packageContent = ExecUtil.exec("adb -s 127.0.0.1:7555 shell /data/local/tcpdump -i any port 53 -s 0");
         } catch (Exception e) {
             packageContent = "";
         }
@@ -126,7 +149,6 @@ public class TcpdumpUtil extends Thread {
         return responseMap;
     }
 
-
     private void saveDomain(LinkedHashMap<Integer, String> requestMap, HashMap<Integer, ArrayList<ArrayList<String>>> responseMap) {
         // 存储app-域名信息
         HashSet<String> domainSet = saveAppDomain(requestMap);
@@ -154,7 +176,6 @@ public class TcpdumpUtil extends Thread {
                         }
                     }
 
-                    // 再保存到domain_cname表
                     for (String a : aList) {
                         // 保存到domain_ip 表
                         ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, queryDomainIpSql, requestDomain, a);
@@ -170,7 +191,6 @@ public class TcpdumpUtil extends Thread {
         }
     }
 
-
     // 保存请求域名，域名去重操作也在这里
     // 返回的是保存到domain表的域名
     private HashSet<String> saveAppDomain(LinkedHashMap<Integer, String> requestMap) {
@@ -179,7 +199,7 @@ public class TcpdumpUtil extends Thread {
         // 插入域名
         String sql2 = "INSERT INTO `domain` (`domain`, `domain_desc`) VALUES (?, ?)";
         // 插入APP 域名 对应关系
-        String sql3 = "insert into app_domain(app_id, domain, label) values(? ,?, ?)";
+        String sql3 = "insert into app_domain(app_id, domain, source) values(? ,?, ?)";
         // 检查app 与域名对应关系是否已存在
         String sql4 = "select * from app_domain where app_id = ? and domain = ?";
         // 用来去重的集合
@@ -209,35 +229,11 @@ public class TcpdumpUtil extends Thread {
             logger.info("剔除域名: " + excludeDomain);
         }
 
-        // 更新app域名表
-        for (String domain : domainSet) {
-            logger.info(packageName + " 查询域名 " + "\t" + domain);
-            // 检查domain表
-            ResultSet resultSet = (ResultSet) DBManager.execute(DataSource.APP_TEST_DB, sql1, domain);
-            try {
-                if (!resultSet.next()) {
-                    // domain表不包含这个域名，则添加
-                    // 先爬取域名备案
-                    String domain_desc = ChinazCrawler.getNameByDomain(domain);
-                    DBManager.execute(DataSource.APP_TEST_DB, sql2, domain, domain_desc);
-                    logger.info("发现新域名 " + domain + " " + domain_desc);
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            // 对每个app id 保存一遍
-            // todo 2019-4-4 可能可以添加测试功能，即若一个域名频繁出现，则直接标注-1？
-            for (Integer appId : appIdList) {
-                // 先检查app与域名对应是否已存在
-                try {
-                    if (!((ResultSet) DBManager.execute(DataSource.APP_TEST_DB, sql4, String.valueOf(appId), domain)).next()) {
-                        DBManager.execute(DataSource.APP_TEST_DB, sql3, String.valueOf(appId), domain, "0");
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
+        HashSet<Integer> appIdSet = DBManager.getAppId(packageName);
+        for (Integer appId : appIdSet) {
+            DBManager.insertAppDomains(String.valueOf(appId), domainSet, op);
         }
+
         return domainSet;
     }
 }

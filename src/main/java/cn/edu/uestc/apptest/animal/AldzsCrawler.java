@@ -99,7 +99,6 @@ public class AldzsCrawler {
             map.putIfAbsent(array[0], array);
             for (String item : array) {
                 System.out.print(item);
-
             }
             System.out.println();
         }
@@ -159,7 +158,7 @@ public class AldzsCrawler {
             LinkedList<String[]> list = parseContent(content);
             saveToDB(list);
             try {
-                Thread.sleep(1000);
+                Thread.sleep(50000);
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -169,7 +168,7 @@ public class AldzsCrawler {
     public static void main(String[] args) throws Exception {
         AldzsCrawler crawler = new AldzsCrawler();
         crawler.crawl();
-        String sql = "insert into wxxcx values (?, ?, ?, ?, ?, 0, 0)";
+        String sql = "insert into wxxcx values (?, ?, ?, ?, ?, 0, 0, '')";
         for (String id : crawler.map.keySet()) {
             String[] array = crawler.map.get(id);
             DBManager.execute(DataSource.APP_TEST_DB, sql, array[0], array[2], array[1], array[3], array[4]);

@@ -34,7 +34,14 @@ public enum Activity {
     // 内嵌浏览器
     WebviewMpUI("com.tencent.mm/.plugin.webview.ui.tools.WebviewMpUI"),
     // 微信主界面
-    LauncherUI("com.tencent.mm/.ui.LauncherUI"); // 微信主activity
+    LauncherUI("com.tencent.mm/.ui.LauncherUI"), // 微信主activity
+    // 已关注公众号的聊天页面
+    ChattingUI("com.tencent.mm/.ui.chatting.ChattingUI"),
+
+
+    WzUI("com.tencent.mm/.plugin.profile.ui.ContactInfoUI"),
+    WyUI("com.tencent.mm/.plugin.brandservice.ui.timeline.preload.ui.TmplWebViewTooLMpUI");
+
 
     public String name;
 

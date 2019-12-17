@@ -134,18 +134,20 @@ public class WechatTester {
         }
 
         logger.info("点击结果列表中的第1个小程序");
-        int[] position = XMLUtil.getBoundary(Resource.XCX_RESULT_LIST_0).getPositionToBottom(0.95);
+
+        String resource = Resource.TEXT_FORMAT.replace("{}", appName); // 把appName转为小写? 有的地方是小写、有的地方是大写...
+        int[] position = XMLUtil.getBoundary(resource).getPositionToBottom(0.95);
         ExecUtil.exec(String.format("adb shell input tap %d %d", position[0], position[1]));
 
         double initScale = 0.88;
         L2:
         while (initScale > 0.4) {
-            logger.info(EmulatorStateManager.getCurrentView());
+            //logger.info(EmulatorStateManager.getCurrentView());
             // 看到小程序logo，todo 可能会同时出现小程序和公众号，如何确定点击位置?
             // 目前的解决办法是：从上往下点、直到小程序或者超出边界为止。
-            Boundary boundary = XMLUtil.getBoundary(Resource.XCX_RESULT_LIST_0);
+            Boundary boundary = XMLUtil.getBoundary(resource);
             if (boundary == null) {
-                boundary = XMLUtil.getBoundary(Resource.XCX_RESULT_LIST_0);
+                boundary = XMLUtil.getBoundary(resource);
             }
             if (boundary == null) {
                 break L2;
@@ -203,7 +205,7 @@ public class WechatTester {
                 break;
             }
             logger.info("正在加载: " + title);
-        } while (count++ <= 40); //检查是否正在加载页面
+        } while (count++ <= 100); //检查是否正在加载页面
 
         // 需要检查是否含圆圈图片按钮(小程序关闭按钮)，如果含，则是小程序，否则不是
         if (XMLUtil.getBoundary(Resource.XCX_PAGE_IMAGE_CLOSE_BUTTON) == null) {
@@ -230,8 +232,10 @@ public class WechatTester {
             tmpFile.mkdirs();
             Arrays.asList(tmpFile.listFiles()).forEach(file -> file.delete());
 
-            ExecUtil.exec(String.format("adb shell rm /data/data/com.tencent.mm/MicroMsg/%s/appbrand/pkg/.*", folderName));
+            // 2019-10-21 先导出小程序安装包文件然后再从模拟器删除
             ExecUtil.exec(String.format("adb pull \"/data/data/com.tencent.mm/MicroMsg/%s/appbrand/pkg/\" %s", folderName, tmpFile));
+            ExecUtil.exec(String.format("adb shell rm /data/data/com.tencent.mm/MicroMsg/%s/appbrand/pkg/.*", folderName));
+
             if (pkgFile.exists()) {
                 if (!pkgFile.renameTo(new File(tmpFile.getAbsolutePath() + File.separator + appName))) {
                     FileUtils.deleteQuietly(pkgFile);
